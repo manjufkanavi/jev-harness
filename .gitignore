@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+
+# Local runtime artifacts
+*.log
+.env
+.env.*
+!.env.example
+
+# Playwright / test output
+playwright-report/
+test-results/
+blob-storage/
+*.trajectory.jsonl
+
+# Model / cache artifacts
+models/
+*.onnx
+*.gguf
+hf_cache/
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
