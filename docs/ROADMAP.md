@@ -1,51 +1,80 @@
-# jev-harness — Roadmap (DRAFT / research-driven)
+# jev-harness — Roadmap (v2, research-driven)
 
-> Research validation order. The design here is provisional and will change as
-> experiments answer the questions below. This file exists to keep that research
-> visible and ordered — it is not a schedule.
+> Research validation order, v2. Not a schedule. v1's R1 ("is ECE low enough?")
+> is replaced — ECE is a population statistic; what kills tests is a
+> confident-wrong decision, so the gate is now **post-escalation per-step
+> error rate**. Two items (self-healing coverage, triage accuracy) move up
+> because v2 made them core, not hardening.
 
-## Why this order
+## R1 — Can OpenJev route *your* domain within the error bound? *(highest)*
 
-Risk is concentrated in two places: **calibration** and **state representation**. If a
-cheap classifier cannot reliably route routine decisions, the economics collapse and
-the rest of the architecture is moot. So research validates those first; everything
-else (compiler, replay stability) only matters if the foundation holds.
+- Serve OpenJev (vLLM + shim); measure your real latency / tokens / cost per
+  decision (v1's "sub-100ms" was not its number — ~210ms / ~1.5k tokens is).
+- Build the labeled corpus **from the pilot app** (mined sessions + LLM
+  pseudo-labels, human spot-checked). OpenJev's 84% is a *general* 10k
+  benchmark; your forms may be 95% or 70%.
+- For each candidate θ: confident-subset accuracy + escalation rate.
+- **Pass:** post-escalation per-step error ≤ bound (draft 1%) at a θ whose
+  escalation rate R3 can price. If no θ satisfies both, the project stops or
+  re-scopes the domain.
 
-## R1 — Can a cheap classifier route routine decisions with calibrated confidence? *(highest)*
+## R2 — Minimal sufficient Page State, with the ladder *(v2)*
 
-- Build a labeled corpus of UI decision samples (operation + target) for one domain.
-- Measure calibration: reliability diagram, Expected Calibration Error, Brier score.
-- Decide classifier family given the calibration + latency + cost constraints.
-- **Pass criterion:** ECE under a chosen bound on the sample domain.
+- Representation variants: flat vs tree; label-only vs +visible text /
+  actionability / list-index; ladder capture on vs off.
+- Measure: wrong-call rate, escalation rate, **snapshot build cost** (ms +
+  prompt tokens, inside OpenJev's 52-option / ~1.5k-token budget).
+- **Pass:** a documented representation that meets the accuracy floor inside
+  the budget, with the boundary (canvas / WebGL / PDF / video out) stated.
 
-## R2 — What is the minimal sufficient Page State representation? *(highest)*
+## R3 — Does the hybrid stay cheap in practice? *(v2)*
 
-- Compare snapshot representations (flat list vs. graph; label-only vs. includes
-  visible text, position, visibility-under-overlay).
-- Measure how representation quality affects wrong-call rate and escalation frequency.
-- **Pass criterion:** a documented minimal representation that meets an accuracy floor
-  at acceptable build cost.
+- With R1 + R2 fixed, on the pilot suite: escalation rate, **text-step ratio
+  and LLM-text-call count** (data-table-first hierarchy), GPU amortization per
+  authored test.
+- Run the **four-baseline comparison** (human Playwright / self-healing vendor
+  tool / full LLM agent / jev-harness) over a 30-day replay window: authoring
+  cost + time, flake rate, triage time, bug detection.
+- **Pass:** the 10–30× authoring claim holds *for this domain*, and 30-day
+  total ownership cost beats the best baseline. The claim is per-domain;
+  form-heavy domains earn it only if the text hierarchy keeps LLM calls rare.
 
-## R3 — Can escalation stay rare and cheap in practice?
+## R4 — Self-healing coverage *(v2 — promoted)*
 
-- With R1 + R2 fixed, measure real-world escalation rate across a sample suite.
-- Confirm the hybrid cost advantage holds outside toy examples.
-- **Pass criterion:** escalation rate low enough to preserve the 10–30× cost advantage.
+- Locator ladder (testid → role+name → css → text anchor → position) across
+  drift variants: class renames, element reorders, new siblings, A/B UI
+  variants, viewport.
+- Measure: ladder-only survival rate, exception rate, flake rate, exception
+  cost; self-heal promotion effect (do exceptions trend to zero on stable
+  apps?).
+- **Pass:** flake rate ≤ target across all variants; the exception path stays
+  the exception (≤ 5% of runs in steady state).
 
-## R4 — How do we keep replay locators stable across environments? *(flakiness)*
+## R5 — Compiler round-trip
 
-- Evaluate: injected `data-testid`, semantic locators, self-healing on stale locator.
-- Measure flake rate across viewport / timing / DOM-drift variants at replay time.
-- **Pass criterion:** flake rate under target across all tested variants.
+- Round-trip fidelity: compiled script re-executes the recorded trajectory
+  exactly (ladder order, text, assertions).
+- Generality over control-flow shapes: branches, loops, conditional
+  assertions from decomposition.
+- **Pass:** deterministic round-trip across the pilot suite.
 
-## R5 — Compiler correctness & generality
+## R6 — Triage accuracy *(v2 — new)*
 
-- Round-trip fidelity: compiled script reproduces authored trajectory exactly.
-- Generality over control-flow shapes (branches, loops, conditional assertions).
-- **Pass criterion:** deterministic round-trip across the sample suite.
+- Build a real failure corpus: injected flakes, seeded app bugs, drifted
+  replays.
+- LLM verdict (bug / flake / app-change): precision + recall **per class** — a
+  misrouted "flake" hides a real bug; that is the failure mode we most refuse.
+- Measure verdict latency + cost; verify bug-detection parity with the golden
+  suite.
+- **Pass:** precision ≥ target per class; no sustained bug→flake misroutes in
+  the corpus.
 
 ## Ongoing / operational research
 
-- Threshold policy that minimises cost while holding a quality floor.
-- Calibration drift detection and automatic threshold re-tuning over time.
-- Scaling from one domain to many without per-domain retuning.
+- θ policy: minimise cost while holding the quality floor; re-tune on drift
+  detection.
+- Calibration drift: post-escalation error trend over time; automatic re-tune.
+- Domain scaling: per-domain corpus cost; when does a domain need its own θ /
+  pruning (OpenJev trains once — your labels live in the request).
+- Baseline tracking: re-run the four-baseline comparison quarterly — vendor
+  tools and agent models move.
